@@ -53,8 +53,21 @@ func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.
 }
 
 func (s *serverAPI) Register(ctx context.Context, req *ssov1.RegisterRequest) (*ssov1.RegisterResponce, error) {
-	panic("implement me")
+	userID, err := s.auth.RegisterNewUser(ctx, req.GetEmail(), req.GetPassword())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "internal error")
+	}
+	return &ssov1.RegisterResponce{
+		UserId: userID,
+	}, nil
 }
 func (s *serverAPI) IsAdmin(ctx context.Context, req *ssov1.IsAdminRequest) (*ssov1.IsAdminResponce, error) {
-	panic("implement me")
+	isAdmin, err := s.auth.IsAmin(ctx, req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "internal error")
+	}
+
+	return &ssov1.IsAdminResponce{
+		IsAdmin: isAdmin,
+	}, nil
 }
