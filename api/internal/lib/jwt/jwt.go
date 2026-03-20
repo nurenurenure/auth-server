@@ -14,7 +14,7 @@ func NewToken(user models.User, app models.App, duration time.Duration) (string,
 	claims["uid"] = user.ID
 	claims["email"] = user.Email
 	claims["exp"] = time.Now().Add(duration).Unix()
-	claims["add_id"] = app.ID
+	claims["app_id"] = app.ID
 
 	tokenString, err := token.SignedString([]byte(app.Secret))
 	if err != nil {
@@ -22,5 +22,4 @@ func NewToken(user models.User, app models.App, duration time.Duration) (string,
 	}
 
 	return tokenString, nil
-
 }

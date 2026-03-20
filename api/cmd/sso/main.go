@@ -21,17 +21,26 @@ func main() {
 
 	log.Info("starting application", slog.String("env", cfg.Env))
 
-	application := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.TokenTTL)
+	application := app.New(
+		log,
+		cfg.GRPC.Port,
+		cfg.Storage.DSN(),
+		cfg.TokenTTL,
+	)
 
-	go application.GRPCSrv.MustRun()
+	go func() {
+		application.GRPCSrv.MustRun()
+	}()
 
-	//graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
 	<-stop
-	application.GRPCSrv.Stop()
-	log.Info("application stopped")
 
+	application.GRPCSrv.Stop()
+	if err := application.Storage.Close(); err != nil {
+		log.Error("failed to close storage", slog.String("error", err.Error()))
+	}
+	log.Info("application stopped")
 }
 
 func setupLogger(env string) *slog.Logger {
@@ -40,15 +49,11 @@ func setupLogger(env string) *slog.Logger {
 	case envLocal:
 		log = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	case envDev:
-		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
-		)
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	case envProd:
-		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
-		)
-
+		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	default:
+		log = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	}
-
 	return log
 }

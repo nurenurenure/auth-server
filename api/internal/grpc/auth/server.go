@@ -16,7 +16,7 @@ type Auth interface {
 		appID int) (token string, err error)
 	RegisterNewUser(stc context.Context,
 		email string, password string) (userID int64, err error)
-	IsAmin(ctx context.Context, userID int64) (bool, error)
+	IsAdmin(ctx context.Context, userID int64) (bool, error)
 }
 
 type serverAPI struct {
@@ -62,7 +62,7 @@ func (s *serverAPI) Register(ctx context.Context, req *ssov1.RegisterRequest) (*
 	}, nil
 }
 func (s *serverAPI) IsAdmin(ctx context.Context, req *ssov1.IsAdminRequest) (*ssov1.IsAdminResponce, error) {
-	isAdmin, err := s.auth.IsAmin(ctx, req.GetUserId())
+	isAdmin, err := s.auth.IsAdmin(ctx, req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.Internal, "internal error")
 	}

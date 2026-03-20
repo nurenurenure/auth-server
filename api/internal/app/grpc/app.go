@@ -3,6 +3,8 @@ package grpcapp
 import (
 	"fmt"
 	authgrpc "gRPC/api/internal/grpc/auth"
+	"gRPC/api/internal/services/auth"
+
 	"log/slog"
 	"net"
 
@@ -18,16 +20,16 @@ type App struct {
 func New(
 	log *slog.Logger,
 	port int,
+	authService *auth.Auth, // Добавляем параметр
 ) *App {
 	gRPCServer := grpc.NewServer()
 
-	authgrpc.Register(gRPCServer)
+	authgrpc.Register(gRPCServer, authService) // Передаем конкретный экземпляр сервиса
 	return &App{
 		log:        log,
 		gRPCServer: gRPCServer,
 		port:       port,
 	}
-
 }
 
 func (a *App) MustRun() {
