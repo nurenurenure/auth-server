@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"gRPC/api/internal/domain/models"
+	"gRPC/api/internal/storage"
 	"log/slog"
 	"time"
 
@@ -17,6 +19,10 @@ type Auth struct {
 	appProvider  AppProvider
 	tokenTTL     time.Duration
 }
+
+var (
+	ErrInvalidCredentials = errors.New("invalid credentials")
+)
 
 type UserSaver interface {
 	SaveUser(
@@ -55,7 +61,36 @@ func (a *Auth) Login(
 	password string,
 	appID int,
 ) (string, error) {
-	panic("not implemented")
+	const op = "Auth.Login"
+
+	log := a.log.With(
+		slog.String("op", op),
+		slog.String("username", email),
+	)
+	log.Info("attempting to login user")
+	user, err := a.userProvider.User(ctx, email)
+	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			a.log.Warn("user not found", slog.String("error", err.Error()))
+
+			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+		}
+
+		a.log.Error("failed to get user", slog.String("error", err.Error()))
+		return "", fmt.Errorf("%s: %w", op, err)
+
+	}
+
+	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
+		a.log.Info("Invalid credentials", slog.String("error", err.Error()))
+
+		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+	}
+	app, err := a.appProvider.App(ctx, appID)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	log.Info("user logged successfully")
 }
 func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (int64, error) {
 	const op = "auth.RegisterNewUser"
