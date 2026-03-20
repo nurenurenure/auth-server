@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gRPC/api/internal/domain/models"
+	"gRPC/api/internal/lib/jwt"
 	"gRPC/api/internal/storage"
 	"log/slog"
 	"time"
@@ -22,6 +23,8 @@ type Auth struct {
 
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrInvalidAppID       = errors.New("invalid app ID")
+	ErrUserExists         = errors.New("user already exists")
 )
 
 type UserSaver interface {
@@ -91,6 +94,13 @@ func (a *Auth) Login(
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 	log.Info("user logged successfully")
+
+	token, err := jwt.NewToken(user, app, a.tokenTTL)
+	if err != nil {
+		a.log.Error("failes to generate token", slog.String("error", err.Error()))
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	return token, nil
 }
 func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (int64, error) {
 	const op = "auth.RegisterNewUser"
@@ -106,7 +116,12 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (
 	}
 	id, err := a.userSaver.SaveUser(ctx, email, passHash)
 	if err != nil {
-		log.Error("failed to saave user", slog.String("error", err.Error()))
+		if errors.Is(err, storage.ErrUserExists) {
+			log.Warn("user already exists", slog.String("error", err.Error()))
+
+			return 0, fmt.Errorf("%s: %w", op, ErrUserExists)
+		}
+		log.Error("failed to save user", slog.String("error", err.Error()))
 		return 0, fmt.Errorf("%s: %w", op, err)
 
 	}
@@ -114,6 +129,23 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (
 	return id, nil
 }
 func (a *Auth) IsAdmin(ctx context.Context, userID int64) (bool, error) {
-	panic("not implemented")
+	const op = "auth.IsAdmin"
+	log := a.log.With(
+		slog.String("op", op),
+		slog.Int64("user_id", userID),
+	)
+	log.Info("checking if user is admin")
+
+	isAdmin, err := a.userProvider.IsAdmin(ctx, userID)
+	if err != nil {
+		if errors.Is(err, storage.ErrAppNotFound) {
+			log.Warn("user not found", slog.String("error", err.Error()))
+
+			return false, fmt.Errorf("%s: %w", op, ErrInvalidAppID)
+		}
+		return false, fmt.Errorf("%s: %w", op, err)
+	}
+	log.Info("checked if user is admin", slog.Bool("is_admin", isAdmin))
+	return isAdmin, nil
 
 }
