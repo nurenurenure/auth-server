@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gRPC/api/internal/domain/models"
+	"gRPC/api/internal/lib/jwt"
 	"gRPC/api/internal/storage"
 	"log/slog"
 	"time"
@@ -91,6 +92,13 @@ func (a *Auth) Login(
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 	log.Info("user logged successfully")
+
+	token, err := jwt.NewToken(user, app, a.tokenTTL)
+	if err != nil {
+		a.log.Error("failes to generate token", slog.String("error", err.Error()))
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	return token, nil
 }
 func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (int64, error) {
 	const op = "auth.RegisterNewUser"
