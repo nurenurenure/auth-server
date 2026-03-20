@@ -71,12 +71,6 @@ SQL-миграции для создания таблиц
 docker-compose.yaml — запуск сервиса и БД
 
 ## Запуск проекта
-Клонирование
-
-git clone https://github.com/your-username/auth-service.git
-
-cd auth-service
-
 Запуск через Docker
 
 docker-compose up --build
